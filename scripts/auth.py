@@ -24,10 +24,11 @@ TENANT = "consumers"
 DEVICECODE_URL = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/devicecode"
 TOKEN_URL = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
 
-TOKEN_FILE = pathlib.Path(__file__).with_name("token.json")
+TOKEN_FILE = pathlib.Path(__file__).resolve().parent.parent / "data" / "token.json"
 
 
 def _save_refresh_token(rt: str) -> None:
+    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
     TOKEN_FILE.write_text(json.dumps({"refresh_token": rt}), encoding="utf-8")
 
 

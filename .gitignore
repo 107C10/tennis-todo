@@ -1,9 +1,5 @@
-config.py
-token.json
-.sjtu_cookie
+data/
 __pycache__/
 .claude/
 *.pyc
 .venv/
-.env
-server.log

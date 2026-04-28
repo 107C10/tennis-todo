@@ -23,14 +23,20 @@ import time
 import traceback
 
 HERE = pathlib.Path(__file__).resolve().parent
+DATA_DIR = HERE.parent / "data"
+
+# 让 `import config` 找到 data/config.py（用户的敏感配置）
+sys.path.insert(0, str(DATA_DIR))
+# 让 `import sync` / `import auth` 等找到 scripts/ 内部模块
 sys.path.insert(0, str(HERE))
 
-LOG = HERE / "server.log"
+LOG = DATA_DIR / "server.log"
 
 
 def log(msg: str) -> None:
     line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
     try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         with LOG.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
     except Exception:

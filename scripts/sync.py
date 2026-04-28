@@ -5,13 +5,10 @@
   plan_changes(...)       → 决策：哪些新建、哪些合并；纯函数
   apply_changes(plan)     → 调 Graph API 写入
 
-【两个入口】
-  run_from_orders(orders, apply)  — server 模式：orders 由 userscript 推上来
-  run_cli(apply)                  — CLI 模式：cookie_store 读 cookie 后自抓 SJTU
+【入口】
+  run_from_orders(orders, apply)  — orders 由 server.py 从 userscript 收到的 JSON 解析得来
 
-CLI 用法：
-  python sync.py            # dry-run
-  python sync.py --apply    # 实际写入  （-a 同义）
+本模块仅作为 server.py 的内部依赖，不再独立运行。
 """
 from __future__ import annotations
 
@@ -29,9 +26,7 @@ if sys.platform == "win32":
 
 import auth
 import config
-import cookie_store
 import merge
-import sjtu_client
 import todo_client
 from merge import BookingInfo, TaskState
 from sjtu_client import Order
@@ -165,26 +160,3 @@ def run_from_orders(orders: list[Order], apply: bool) -> int:
     apply_changes(plan, access_token, config.TODO_LIST_ID)
     print("完成。")
     return 0
-
-
-def run_cli(apply: bool) -> int:
-    """CLI 模式：cookie_store 读 cookie 后自抓 SJTU。"""
-    cookie = cookie_store.load_cookie()
-    if not cookie:
-        raise SystemExit(
-            "未找到 .sjtu_cookie。\n"
-            "  方案 A（推荐）：跑 server 模式 + Tampermonkey userscript 自动同步。\n"
-            "  方案 B（手动）：浏览器 DevTools → Application → Cookies 把 sports.sjtu.edu.cn\n"
-            "                   的所有 cookie 拼成 'k1=v1; k2=v2;...' 写进 .sjtu_cookie。"
-        )
-    print("[0/3] 用 .sjtu_cookie 直连 SJTU 接口...")
-    try:
-        orders = sjtu_client.fetch_pending_orders(cookie)
-    except sjtu_client.SjtuAuthError as e:
-        raise SystemExit(f"SJTU cookie 失效（{e}）。请刷新 .sjtu_cookie 后重试。")
-    return run_from_orders(orders, apply)
-
-
-if __name__ == "__main__":
-    apply_flag = "--apply" in sys.argv or "-a" in sys.argv
-    sys.exit(run_cli(apply_flag))

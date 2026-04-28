@@ -1,8 +1,19 @@
 @echo off
-REM 前台运行：日志直接打印在窗口，Ctrl+C 停止服务。
-REM 想后台开机自启请用 install_autostart.ps1（注册到 Task Scheduler，pythonw 无窗口）。
-REM 提示：如果当前已有 pythonw server.py 在跑（来自 Task Scheduler），会因为端口 5454 占用而失败。
-REM       先 Stop-ScheduledTask -TaskName TennisToDoSync 或在任务管理器结束 pythonw.exe。
+REM Foreground server: logs print to this window. Press Ctrl+C to stop.
+REM For background autostart on logon, run install_autostart.ps1 instead.
+REM ASCII-only on purpose. CJK in REM lines breaks cmd parsing under GBK code page.
+
 chcp 65001 >nul
 cd /d "%~dp0"
-python server.py
+
+REM Pick venv python if .venv exists, else fall back to system python
+set "PY=python"
+if exist ".venv\Scripts\python.exe" set "PY=%~dp0.venv\Scripts\python.exe"
+
+cd scripts
+"%PY%" server.py
+
+echo.
+echo Server has exited. See data\server.log for details.
+echo Press any key to close this window.
+pause >nul
