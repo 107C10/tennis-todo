@@ -22,7 +22,7 @@
 
 ## 共享列表安全约束（必读）
 
-To-Do 列表通常与他人共编。本脚本对**他人手输的任务（无 `[sjtu-order:...]` marker）完全透明**——绝不识别、绝不修改、绝不删除。代码层面**根本没有 DELETE 函数**。
+To-Do 列表通常与他人共编。本脚本对**他人手输的任务（无 `[sjtu-order:...]` marker）完全透明**——绝不识别、绝不修改、绝不删除；即使标题也写成 `🎾4.28 ...` 这种同格式任务，脚本也不会接管。代码层面**根本没有 DELETE 函数**。
 
 ---
 
@@ -73,7 +73,7 @@ git clone https://github.com/107C10/tennis-todo
 
 ## 触发时机
 
-userscript 在以下场景自动同步一次（server 端有自然去抖：每次 sync 互斥）：
+userscript 在以下场景自动同步一次（同一页面执行内有互斥保护；独立 tab / 浏览器 / 设备之间仍可能并发触发）：
 
 | 时机 | 触发条件 |
 |---|---|
@@ -119,7 +119,7 @@ userscript 在以下场景自动同步一次（server 端有自然去抖：每�
 - **正文**：每条预订一个 block，含 `[sjtu-order:<orderId>]` marker
 - 同日已有脚本管理任务（含 marker） → 合并：title 重排、body 追加 block
 - 同日没有脚本管理任务 → 新建一条
-- **视觉去重**：partner 提前手输了某个段在 title 里 → 仅 body 补 marker，title 不动
+- **边界**：无 marker 的人工任务不会被脚本接管；如需自动合并，必须先存在一条脚本已管理的 marker 任务
 
 ---
 
@@ -127,6 +127,7 @@ userscript 在以下场景自动同步一次（server 端有自然去抖：每�
 
 | 风险 | 缓解 |
 |---|---|
+| 同一页面内重复触发 | 页内 `_running` guard 防止重入；但这不是跨 tab / 跨设备的全局锁 |
 | **A、B 几乎同时 sync 导致 lost update** | 每个 task 抓 ETag；PATCH 时带 `If-Match: <etag>`；收到 412 重新拉列表 + 重算 plan + 重试，最多 3 次 |
 | 同日重复任务（race 极端情况）| 后续 sync 选首个 marker 任务为 canonical，剩下的"孤儿"不会被改写也不会被合并（保守、不丢数据）|
 | `dueDateTime` 因不可解析段被错算 | starts 集合包含：当前 title 解析出的段 + existing 自身的 dueTime + 新增的所有 booking |
