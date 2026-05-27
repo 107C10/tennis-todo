@@ -521,14 +521,15 @@
   }
 
   async function listAllTasks(token, listId) {
-    let url = `${GRAPH_BASE}/me/todo/lists/${listId}/tasks?$top=100&$filter=${encodeURIComponent("status ne 'completed'")}`;
+    const cacheBuster = `_ts=${Date.now()}`;
+    let url = `${GRAPH_BASE}/me/todo/lists/${listId}/tasks?$top=100&$filter=${encodeURIComponent("status ne 'completed'")}&${cacheBuster}`;
     const out = [];
     while (url) {
       const r = await gm({ method: 'GET', url, headers: authHeaders(token) });
       if (r.status !== 200) throw new Error(`listAllTasks HTTP ${r.status}: ${r.responseText}`);
       const data = parseJsonResponse(r);
       for (const task of (data.value || [])) out.push(parseGraphTask(task));
-      url = data['@odata.nextLink'] || null;
+      url = data['@odata.nextLink'] ? `${data['@odata.nextLink']}&${cacheBuster}` : null;
     }
     return out;
   }
@@ -568,12 +569,42 @@
 
     const headers = authHeaders(token);
     if (existing.etag) headers['If-Match'] = existing.etag;
-    const r = await gm({
+    let r = await gm({
       method: 'PATCH',
       url: `${GRAPH_BASE}/me/todo/lists/${listId}/tasks/${existing.id}`,
       headers,
       data: JSON.stringify(payload),
     });
+    if (r.status === 412) {
+      const etagUrl = `${GRAPH_BASE}/me/todo/lists/${listId}/tasks/${existing.id}?_ts=${Date.now()}`;
+      const etagRes = await gm({
+        method: 'GET',
+        url: etagUrl,
+        headers: { ...authHeaders(token), 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      });
+      if (etagRes.status === 200) {
+        const latest = parseJsonResponse(etagRes);
+        const latestEtag = latest && latest['@odata.etag'];
+        if (latestEtag) {
+          const retryHeaders = authHeaders(token);
+          retryHeaders['If-Match'] = latestEtag;
+          r = await gm({
+            method: 'PATCH',
+            url: `${GRAPH_BASE}/me/todo/lists/${listId}/tasks/${existing.id}`,
+            headers: retryHeaders,
+            data: JSON.stringify(payload),
+          });
+        }
+      }
+    }
+    if (r.status === 412) {
+      r = await gm({
+        method: 'PATCH',
+        url: `${GRAPH_BASE}/me/todo/lists/${listId}/tasks/${existing.id}`,
+        headers: authHeaders(token),
+        data: JSON.stringify(payload),
+      });
+    }
     if (r.status === 412) {
       const e = new Error('etag conflict');
       e.code = 412;
